@@ -3,6 +3,7 @@ import 'package:butchery_app/locator.dart';
 import 'package:butchery_app/models/inventory_item.dart';
 import 'package:butchery_app/services/inventory_service.dart';
 import 'package:butchery_app/ui/inventory/add_inventory_item_screen.dart';
+import 'package:butchery_app/ui/inventory/edit_inventory_item_screen.dart'; // Import EditScreen
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -64,16 +65,77 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   itemCount: _items.length,
                   itemBuilder: (context, index) {
                     final item = _items[index];
-                    return ListTile(
-                      title: Text(item.name),
-                      subtitle: Text('${item.category} - ${item.quantityInStock.toStringAsFixed(2)} ${item.unit}'),
-                      trailing: Text('\$${item.price.toStringAsFixed(2)}/${item.unit}'),
-                      onTap: () {
-                        // TODO: Navigate to EditInventoryItemScreen(item)
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Tapped on ${item.name} - TODO Edit')),
-                        );
+                    return Dismissible(
+                      key: Key(item.id),
+                      onDismissed: (direction) async {
+                        final String itemId = item.id;
+                        final String itemName = item.name;
+
+                        try {
+                          await _inventoryService.deleteItem(itemId);
+
+                          setState(() {
+                            _items.removeWhere((i) => i.id == itemId);
+                          });
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${itemName} deleted successfully')),
+                            );
+                          }
+                        } catch (e) {
+                          // If deletion fails, refresh the list to revert optimistic UI update
+                          _loadInventoryItems();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error deleting ${itemName}: $e')),
+                            );
+                          }
+                        }
                       },
+                      background: Container(
+                        color: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        alignment: Alignment.centerLeft,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Icon(Icons.delete, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                      secondaryBackground: Container( // Optional: for right swipe, same as left
+                        color: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        alignment: Alignment.centerRight,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text('Delete', style: TextStyle(color: Colors.white)),
+                            SizedBox(width: 8),
+                            Icon(Icons.delete, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                      child: ListTile(
+                        title: Text(item.name),
+                        subtitle: Text('${item.category} - ${item.quantityInStock.toStringAsFixed(2)} ${item.unit}'),
+                        trailing: Text('\$${item.price.toStringAsFixed(2)}/${item.unit}'),
+                        onTap: () async {
+                          final result = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(
+                              builder: (context) => EditInventoryItemScreen(itemToEdit: item), // Pass the current item
+                            ),
+                          );
+                          // If an item was updated (indicated by pop(true) from EditInventoryItemScreen),
+                          // refresh the list.
+                          if (result == true) {
+                            _loadInventoryItems();
+                          }
+                        },
+                      ),
                     );
                   },
                 ),
