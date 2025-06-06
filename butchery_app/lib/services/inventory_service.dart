@@ -68,4 +68,10 @@ class InventoryService {
   Future<void> deleteItem(String id) async {
     _items.removeWhere((item) => item.id == id);
   }
+
+  // Returns a list of items where quantityInStock is at or below the given threshold.
+  Future<List<InventoryItem>> getLowStockItems(double threshold) async {
+    final items = await getItems(); // Uses the existing method to get all items
+    return items.where((item) => item.quantityInStock <= threshold).toList();
+  }
 }

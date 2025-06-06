@@ -25,6 +25,13 @@ class _MainAppShellState extends State<MainAppShell> {
     });
   }
 
+  // Method to allow children widgets to switch tabs
+  void navigateToTab(int index) {
+    if (index >= 0 && index < _widgetOptions.length) {
+      _onItemTapped(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -15,12 +15,40 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = locator<InventoryService>();
   List<InventoryItem> _items = [];
+  List<InventoryItem> _filteredItems = [];
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadInventoryItems();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+        _filterItems();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterItems() {
+    if (_searchQuery.isEmpty) {
+      _filteredItems = List<InventoryItem>.from(_items);
+    } else {
+      _filteredItems = _items.where((item) {
+        final nameLower = item.name.toLowerCase();
+        final categoryLower = item.category.toLowerCase();
+        final queryLower = _searchQuery.toLowerCase();
+        return nameLower.contains(queryLower) || categoryLower.contains(queryLower);
+      }).toList();
+    }
   }
 
   Future<void> _loadInventoryItems() async {
@@ -28,22 +56,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
       _isLoading = true;
     });
     try {
-      // Initially, add some dummy data for testing UI if service is empty
       List<InventoryItem> currentItems = await _inventoryService.getItems();
       if (currentItems.isEmpty) {
         await _inventoryService.addItem(InventoryItem(id: '1', name: 'Test Beef', category: 'Beef', price: 25.0, unit: 'kg', quantityInStock: 10.0, dateAdded: DateTime.now(), lastUpdated: DateTime.now(), description: 'Prime cut beef'));
         await _inventoryService.addItem(InventoryItem(id: '2', name: 'Test Chicken', category: 'Poultry', price: 15.0, unit: 'kg', quantityInStock: 20.0, dateAdded: DateTime.now(), lastUpdated: DateTime.now(), description: 'Whole chicken'));
-        currentItems = await _inventoryService.getItems(); // Re-fetch after adding
+        currentItems = await _inventoryService.getItems();
       }
       setState(() {
         _items = currentItems;
         _isLoading = false;
       });
+      _filterItems(); // Initialize/apply filter after loading items
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading inventory: $e')),
         );
@@ -57,25 +85,56 @@ class _InventoryScreenState extends State<InventoryScreen> {
       appBar: AppBar(
         title: const Text('Inventory'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
-              ? const Center(child: Text('No items in inventory.'))
-              : ListView.builder(
-                  itemCount: _items.length,
-                  itemBuilder: (context, index) {
-                    final item = _items[index];
-                    return Dismissible(
-                      key: Key(item.id),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search Inventory (Name or Category)',
+                hintText: 'Enter item name or category...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _items.isEmpty // Original list check for "no items AT ALL"
+                    ? const Center(child: Text('No items in inventory.'))
+                    : _filteredItems.isEmpty // Filtered list check for "no results for search"
+                        ? Center(child: Text('No results found for "$_searchQuery".'))
+                        : RefreshIndicator(
+                            onRefresh: _loadInventoryItems,
+                            child: ListView.builder(
+                              itemCount: _filteredItems.length,
+                              itemBuilder: (context, index) {
+                                final item = _filteredItems[index];
+                                return Dismissible(
+                                  key: Key(item.id),
                       onDismissed: (direction) async {
-                        final String itemId = item.id;
+                        final String itemId = item.id; // Use item from _filteredItems
                         final String itemName = item.name;
 
                         try {
                           await _inventoryService.deleteItem(itemId);
 
+                          // Remove from both lists and update UI
                           setState(() {
                             _items.removeWhere((i) => i.id == itemId);
+                            _filterItems(); // Re-apply filter to update _filteredItems
                           });
 
                           if (mounted) {
@@ -84,8 +143,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             );
                           }
                         } catch (e) {
-                          // If deletion fails, refresh the list to revert optimistic UI update
-                          _loadInventoryItems();
+                          _loadInventoryItems(); // Refresh original list and re-filter on error
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Error deleting ${itemName}: $e')),
