@@ -112,9 +112,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _items.isEmpty // Original list check for "no items AT ALL"
-                    ? const Center(child: Text('No items in inventory.'))
-                    : _filteredItems.isEmpty // Filtered list check for "no results for search"
+                : _items.isEmpty
+                    ? const Center(child: Text('No items in inventory. Add some!')) // Updated text
+                    : _filteredItems.isEmpty && _searchQuery.isNotEmpty
                         ? Center(child: Text('No results found for "$_searchQuery".'))
                         : RefreshIndicator(
                             onRefresh: _loadInventoryItems,
@@ -124,92 +124,79 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 final item = _filteredItems[index];
                                 return Dismissible(
                                   key: Key(item.id),
-                      onDismissed: (direction) async {
-                        final String itemId = item.id; // Use item from _filteredItems
-                        final String itemName = item.name;
+                                  onDismissed: (direction) async {
+                                    final String itemId = item.id;
+                                    final String itemName = item.name;
 
-                        try {
-                          await _inventoryService.deleteItem(itemId);
+                                    // Optimistic removal from UI state
+                                    setState(() {
+                                      _items.removeWhere((i) => i.id == itemId);
+                                      _filterItems(); // Re-filter the list
+                                    });
 
-                          // Remove from both lists and update UI
-                          setState(() {
-                            _items.removeWhere((i) => i.id == itemId);
-                            _filterItems(); // Re-apply filter to update _filteredItems
-                          });
-
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${itemName} deleted successfully')),
-                            );
-                          }
-                        } catch (e) {
-                          _loadInventoryItems(); // Refresh original list and re-filter on error
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error deleting ${itemName}: $e')),
-                            );
-                          }
-                        }
-                      },
-                      background: Container(
-                        color: Colors.red,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        alignment: Alignment.centerLeft,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Icon(Icons.delete, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                      secondaryBackground: Container( // Optional: for right swipe, same as left
-                        color: Colors.red,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        alignment: Alignment.centerRight,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text('Delete', style: TextStyle(color: Colors.white)),
-                            SizedBox(width: 8),
-                            Icon(Icons.delete, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                      child: ListTile(
-                        title: Text(item.name),
-                        subtitle: Text('${item.category} - ${item.quantityInStock.toStringAsFixed(2)} ${item.unit}'),
-                        trailing: Text('\$${item.price.toStringAsFixed(2)}/${item.unit}'),
-                        onTap: () async {
-                          final result = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute(
-                              builder: (context) => EditInventoryItemScreen(itemToEdit: item), // Pass the current item
+                                    try {
+                                      await _inventoryService.deleteItem(itemId);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('${itemName} deleted successfully')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      // Revert optimistic update by reloading data
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error deleting ${itemName}: $e. Please refresh.')),
+                                        );
+                                      }
+                                      _loadInventoryItems(); // Reload to get consistent state
+                                    }
+                                  },
+                                  background: Container(
+                                    color: Colors.red,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    alignment: Alignment.centerLeft,
+                                    child: const Row(mainAxisAlignment: MainAxisAlignment.start, children: [Icon(Icons.delete, color: Colors.white), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.white))]),
+                                  ),
+                                  secondaryBackground: Container(
+                                    color: Colors.red,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    alignment: Alignment.centerRight,
+                                    child: const Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text('Delete', style: TextStyle(color: Colors.white)), SizedBox(width: 8), Icon(Icons.delete, color: Colors.white)]),
+                                  ),
+                                  child: ListTile(
+                                    title: Text(item.name),
+                                    subtitle: Text('${item.category} - ${item.quantityInStock.toStringAsFixed(1)} ${item.unit}'), // Changed to toFixed(1)
+                                    trailing: Text('\$${item.price.toStringAsFixed(2)}/${item.unit}'),
+                                    onTap: () async {
+                                      final result = await Navigator.of(context).push<bool>(
+                                        MaterialPageRoute(
+                                          builder: (context) => EditInventoryItemScreen(itemToEdit: item),
+                                        ),
+                                      );
+                                      if (result == true && mounted) { // Added mounted check
+                                        _loadInventoryItems();
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                          // If an item was updated (indicated by pop(true) from EditInventoryItemScreen),
-                          // refresh the list.
-                          if (result == true) {
-                            _loadInventoryItems();
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(builder: (context) => const AddInventoryItemScreen()),
-          );
-          // If an item was added (indicated by pop(true) from AddInventoryItemScreen),
-          // refresh the list.
-          if (result == true) {
-            _loadInventoryItems();
-          }
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
+                          ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(builder: (context) => const AddInventoryItemScreen()),
+            );
+            if (result == true && mounted) { // Added mounted check
+              _loadInventoryItems();
+            }
+          },
+          tooltip: 'Add New Item', // Added tooltip
+          child: const Icon(Icons.add),
+        ),
+      );
+    }
   }
-}

@@ -60,7 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToTabInShell(int tabIndex) {
-    final mainAppShellState = context.findAncestorStateOfType<_MainAppShellState>();
+    final mainAppShellState = context.findAncestorStateOfType<MainAppShellState>();
     if (mainAppShellState != null) {
         mainAppShellState.navigateToTab(tabIndex);
     } else {

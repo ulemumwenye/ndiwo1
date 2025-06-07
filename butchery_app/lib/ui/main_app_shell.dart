@@ -7,10 +7,10 @@ class MainAppShell extends StatefulWidget {
   const MainAppShell({super.key});
 
   @override
-  State<MainAppShell> createState() => _MainAppShellState();
+  State<MainAppShell> createState() => MainAppShellState();
 }
 
-class _MainAppShellState extends State<MainAppShell> {
+class MainAppShellState extends State<MainAppShell> {
   int _selectedIndex = 0;
 
   static const List<Widget> _widgetOptions = <Widget>[

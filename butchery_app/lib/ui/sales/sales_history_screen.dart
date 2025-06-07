@@ -3,6 +3,7 @@ import 'package:butchery_app/locator.dart';
 import 'package:butchery_app/models/sale.dart';
 import 'package:butchery_app/services/sales_service.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import 'dart:math' as math; // Import dart:math
 
 class SalesHistoryScreen extends StatefulWidget {
   const SalesHistoryScreen({super.key});
@@ -87,7 +88,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Sale Details (ID: ...${sale.id.isNotEmpty ? sale.id.substring(sale.id.length - Math.min(6, sale.id.length)) : 'N/A'})'),
+          title: Text('Sale Details (ID: ...${sale.id.isNotEmpty ? sale.id.substring(sale.id.length - math.min(6, sale.id.length)) : 'N/A'})'), // Use math.min
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
@@ -166,7 +167,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     ? Center(
                         child: Text(
                           'No sales recorded yet.',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                          style: Theme.of(context).textTheme.titleMedium, // Consistent with "no results"
                         ),
                       )
                     : _filteredSales.isEmpty && _searchQuery.isNotEmpty
@@ -181,7 +182,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         child: ListTile(
                           leading: CircleAvatar(child: Text((index + 1).toString())),
-                          title: Text('Sale ID: ...${sale.id.isNotEmpty ? sale.id.substring(sale.id.length - Math.min(6, sale.id.length)) : 'N/A'}'),
+                          title: Text('Sale ID: ...${sale.id.isNotEmpty ? sale.id.substring(sale.id.length - math.min(6, sale.id.length)) : 'N/A'}'), // Use math.min
                           subtitle: Text('Date: ${DateFormat('yyyy-MM-dd HH:mm').format(sale.saleDate)}\nTotal: \$${sale.totalAmount.toStringAsFixed(2)} - ${sale.paymentMethod}'),
                           isThreeLine: true,
                           trailing: const Icon(Icons.arrow_forward_ios),
@@ -195,7 +196,4 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   }
 }
 
-// Helper for Math.min since dart:math is not imported by default in widget files
-class Math {
-  static int min(int a, int b) => (a < b) ? a : b;
-}
+// Helper class Math removed as dart:math is now imported
