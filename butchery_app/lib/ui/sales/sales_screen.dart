@@ -149,7 +149,7 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   Future<void> _showQuantityDialog(InventoryItem item) async {
-    final quantityController = TextEditingController(text: '1'); // Default quantity 1
+    final quantityEditingController = TextEditingController(text: '1'); // Renamed
     final formKey = GlobalKey<FormState>();
 
     final result = await showDialog<double>(
@@ -160,7 +160,8 @@ class _SalesScreenState extends State<SalesScreen> {
           content: Form(
             key: formKey,
             child: TextFormField(
-              controller: quantityController,
+              controller: quantityEditingController, // Renamed
+              autofocus: true, // Added autofocus
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'Quantity'),
               validator: (value) {
@@ -196,7 +197,7 @@ class _SalesScreenState extends State<SalesScreen> {
               child: const Text('Add to Cart'),
               onPressed: () {
                 if (formKey.currentState!.validate()) {
-                  Navigator.of(context).pop(double.parse(quantityController.text));
+                  Navigator.of(context).pop(double.parse(quantityEditingController.text)); // Renamed
                 }
               },
             ),
@@ -208,7 +209,9 @@ class _SalesScreenState extends State<SalesScreen> {
     if (result != null && result > 0) {
       _addToCart(item, result);
     }
-    quantityController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) { // Dispose using addPostFrameCallback
+      quantityEditingController.dispose();
+    });
   }
 
   void _removeFromCart(OrderItem orderItemToRemove) {
@@ -229,7 +232,7 @@ class _SalesScreenState extends State<SalesScreen> {
     }
 
     _selectedPaymentMethod = _paymentMethods[0]; // Default selection
-    final notesController = TextEditingController();
+    final saleNotesController = TextEditingController(); // Renamed
     final formKey = GlobalKey<FormState>();
 
     final bool? saleConfirmed = await showDialog<bool>(
@@ -263,7 +266,7 @@ class _SalesScreenState extends State<SalesScreen> {
                       validator: (value) => value == null ? 'Please select a payment method' : null,
                     ),
                     TextFormField(
-                      controller: notesController,
+                      controller: saleNotesController, // Renamed
                       decoration: const InputDecoration(labelText: 'Notes (Optional)'),
                       maxLines: 2,
                     ),
@@ -291,9 +294,11 @@ class _SalesScreenState extends State<SalesScreen> {
     );
 
     if (saleConfirmed == true && _selectedPaymentMethod != null) {
-      await _processSale(notesController.text);
+      await _processSale(saleNotesController.text); // Use renamed controller
     }
-    notesController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) { // Dispose using addPostFrameCallback
+      saleNotesController.dispose();
+    });
   }
 
   Future<void> _processSale(String notes) async {
